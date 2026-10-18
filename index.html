@@ -3,227 +3,527 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ביקורת סרטון</title>
+<title>חדר הביקורת</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', 'Heebo', sans-serif; }
-  body { background: #0d0d14; color: #e2e8f0; min-height: 100vh; }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-  h1 { font-size: 18px; display: flex; align-items: center; gap: 8px; }
-  .badge { font-size: 11px; background: linear-gradient(135deg,#be185d,#ec4899); padding: 2px 10px; border-radius: 99px; }
-  .stage { position: relative; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #26263a; }
-  video { display: block; width: 100%; max-height: 62vh; }
-  #drawCanvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: none; }
-  .stage.drawing #drawCanvas { display: block; cursor: crosshair; }
-  .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  button { background: #1c1c2b; color: #cbd5e1; border: 1px solid #33334d; border-radius: 8px;
-    padding: 7px 13px; font-size: 13px; cursor: pointer; transition: all .15s; }
-  button:hover { border-color: #ec4899; }
-  button.primary { background: linear-gradient(135deg,#be185d,#ec4899); border: none; color: #fff; font-weight: 700; }
-  button.active { background: rgba(236,72,153,.2); border-color: #ec4899; color: #f9a8d4; }
+  :root {
+    color-scheme: dark;
+    --bg: #0b0b12; --panel: #13131d; --panel2: #191926; --line: #262638; --line2: #33334a;
+    --text: #eceef5; --muted: #8b8fa8; --dim: #5d6078;
+    --accent: #ec4899; --accent2: #be185d; --accentSoft: rgba(236,72,153,.14);
+    --ok: #34d399; --okSoft: rgba(52,211,153,.12); --warn: #fbbf24; --warnSoft: rgba(251,191,36,.12); --info: #60a5fa; --infoSoft: rgba(96,165,250,.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+  button { font-family: inherit; cursor: pointer; }
+  .hidden { display: none !important; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 18px 16px 60px; }
+
+  /* top bar */
+  .top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(11,11,18,.9); position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px); }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 17px; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--accent2), var(--accent)); display: grid; place-items: center; font-size: 15px; }
+  .spacer { flex: 1; }
+  .user { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line2); display: grid; place-items: center; font-weight: 700; color: var(--text); overflow: hidden; flex-shrink: 0; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .btn { border: 1px solid var(--line2); background: var(--panel2); color: var(--text); border-radius: 10px; padding: 8px 14px; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; transition: .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent2), var(--accent)); border: none; color: #fff; font-weight: 700; }
+  .btn.ghost { background: transparent; }
+  .btn.ok { background: var(--okSoft); border-color: rgba(52,211,153,.45); color: var(--ok); font-weight: 700; }
+  .btn.small { padding: 5px 10px; font-size: 13px; border-radius: 8px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* login */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  .login-card { width: 100%; max-width: 420px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 34px 28px; text-align: center; }
+  .login-card .logo { width: 58px; height: 58px; border-radius: 16px; margin: 0 auto 16px; background: linear-gradient(135deg, var(--accent2), var(--accent)); display: grid; place-items: center; font-size: 28px; }
+  .login-card h1 { font-size: 24px; margin-bottom: 8px; }
+  .login-card p { color: var(--muted); line-height: 1.7; font-size: 14px; margin-bottom: 22px; }
+  .gbtn { width: 100%; justify-content: center; background: #fff; color: #1f1f1f; border: none; font-weight: 700; padding: 12px; font-size: 15px; border-radius: 12px; }
+  .gbtn svg { width: 20px; height: 20px; }
+  .note { margin-top: 16px; padding: 11px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.6; text-align: right; }
+  .note.err { background: rgba(239,68,68,.1); color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
+
+  /* dashboard */
+  .hello h2 { font-size: 22px; margin-bottom: 4px; }
+  .hello p { color: var(--muted); font-size: 14px; }
+  .stats { display: flex; gap: 10px; margin: 18px 0 14px; flex-wrap: wrap; }
+  .stat { flex: 1; min-width: 130px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; cursor: pointer; transition: .15s; }
+  .stat:hover, .stat.on { border-color: var(--accent); background: var(--accentSoft); }
+  .stat b { display: block; font-size: 24px; font-weight: 800; }
+  .stat span { font-size: 13px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; cursor: pointer; transition: .18s; display: flex; flex-direction: column; }
+  .card:hover { transform: translateY(-3px); border-color: var(--line2); box-shadow: 0 12px 28px rgba(0,0,0,.35); }
+  .thumb { aspect-ratio: 16/9; background: linear-gradient(135deg, #1d1d2e, #27203a); position: relative; display: grid; place-items: center; color: var(--dim); font-size: 34px; overflow: hidden; }
+  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .thumb .ver { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.65); color: #fff; font-size: 11.5px; padding: 2px 8px; border-radius: 20px; }
+  .card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 7px; flex: 1; }
+  .card-title { font-weight: 700; font-size: 15.5px; line-height: 1.35; }
+  .card-meta { font-size: 12.5px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; width: fit-content; }
+  .b-new { background: var(--infoSoft); color: var(--info); }
+  .b-fix { background: var(--warnSoft); color: var(--warn); }
+  .b-ok { background: var(--okSoft); color: var(--ok); }
+  .b-wait { background: rgba(167,139,250,.13); color: #c4b5fd; }
+  .empty { text-align: center; color: var(--muted); padding: 50px 20px; border: 1px dashed var(--line2); border-radius: 16px; line-height: 1.8; }
+
+  /* review page */
+  .back { color: var(--muted); background: none; border: none; font-size: 14px; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 12px; }
+  .back:hover { color: var(--text); }
+  .rv-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .rv-head h2 { font-size: 21px; }
+  .rv-head .sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .rv { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .rv { grid-template-columns: 1fr; } }
+  .stage { position: relative; background: #000; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+  video { display: block; width: 100%; max-height: 66vh; min-height: 220px; background: #000; }
+  #drawCanvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; pointer-events: none; }
+  .stage.drawing #drawCanvas { pointer-events: auto; cursor: crosshair; }
+  .draw-hint { position: absolute; top: 10px; right: 10px; background: rgba(236,72,153,.9); color: #fff; font-size: 12.5px; padding: 4px 10px; border-radius: 20px; display: none; }
+  .stage.drawing .draw-hint { display: block; }
+  .viewing-hint { position: absolute; top: 10px; right: 10px; background: rgba(96,165,250,.92); color: #fff; font-size: 12.5px; padding: 4px 10px; border-radius: 20px; }
+  .composer { margin-top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .composer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tchip { font-family: ui-monospace, monospace; background: var(--accentSoft); border: 1px solid rgba(236,72,153,.4); color: #f9a8d4; padding: 4px 10px; border-radius: 8px; font-size: 13px; }
+  textarea { width: 100%; background: var(--bg); border: 1px solid var(--line2); border-radius: 10px; color: var(--text); padding: 10px 12px; font-size: 15px; font-family: inherit; resize: vertical; min-height: 70px; line-height: 1.55; }
+  textarea:focus { outline: none; border-color: var(--accent); }
   .tools { display: none; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .stage-box.drawing-mode .tools { display: flex; }
-  input[type=color] { width: 34px; height: 30px; border: none; border-radius: 6px; background: none; cursor: pointer; }
-  .comment-box { display: flex; flex-direction: column; gap: 8px; background: #14141f; border: 1px solid #26263a; border-radius: 12px; padding: 12px; }
-  textarea, input[type=text] { background: #0d0d14; border: 1px solid #33334d; border-radius: 8px; color: #e2e8f0;
-    padding: 9px 11px; font-size: 14px; width: 100%; resize: vertical; }
-  textarea { min-height: 64px; }
-  .time-chip { font-family: monospace; background: rgba(236,72,153,.15); border: 1px solid rgba(236,72,153,.4);
-    color: #f9a8d4; padding: 3px 10px; border-radius: 7px; font-size: 13px; }
-  .list { display: flex; flex-direction: column; gap: 8px; }
-  .item { background: #14141f; border: 1px solid #26263a; border-radius: 10px; padding: 9px 12px; display: flex; gap: 9px; align-items: flex-start; }
-  .item.done { opacity: .55; }
-  .item .t { font-family: monospace; color: #f9a8d4; cursor: pointer; font-size: 12px; white-space: nowrap; padding-top: 2px; }
-  .item .txt { flex: 1; font-size: 14px; line-height: 1.5; }
-  .item .meta { font-size: 11px; color: #64748b; margin-top: 3px; }
-  .hint { font-size: 12px; color: #64748b; line-height: 1.6; }
-  .loading { text-align: center; padding: 40px; color: #64748b; }
+  .composer.drawing .tools { display: flex; }
+  .tool { padding: 5px 10px; font-size: 13px; border-radius: 8px; border: 1px solid var(--line2); background: var(--panel2); color: var(--text); }
+  .tool.on { border-color: var(--accent); background: var(--accentSoft); color: #f9a8d4; }
+  input[type=color] { width: 32px; height: 30px; border: none; background: none; cursor: pointer; }
+  .side { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; max-height: calc(100vh - 110px); position: sticky; top: 74px; }
+  @media (max-width: 900px) { .side { position: static; max-height: none; } }
+  .side-head { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 9px; }
+  .side-head b { font-size: 15px; }
+  .filters { display: flex; gap: 6px; }
+  .fchip { font-size: 12.5px; padding: 4px 11px; border-radius: 20px; border: 1px solid var(--line2); background: transparent; color: var(--muted); }
+  .fchip.on { border-color: var(--accent); color: #f9a8d4; background: var(--accentSoft); }
+  .list { overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .cm { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .cm.done { opacity: .62; }
+  .cm.active { border-color: var(--info); }
+  .cm-top { display: flex; align-items: center; gap: 8px; }
+  .cm-time { font-family: ui-monospace, monospace; font-size: 12.5px; color: #f9a8d4; background: var(--accentSoft); border: none; border-radius: 6px; padding: 2px 8px; }
+  .cm-author { font-size: 12.5px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cm-text { font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .cm.done .cm-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,.35); }
+  .cm-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .link { background: none; border: none; color: var(--muted); font-size: 12.5px; padding: 2px 4px; }
+  .link:hover { color: var(--text); }
+  .link.danger:hover { color: #f87171; }
+  .approved-bar { margin-top: 12px; background: var(--okSoft); border: 1px solid rgba(52,211,153,.4); color: var(--ok); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #1f2937; border: 1px solid var(--line2); color: var(--text); padding: 10px 18px; border-radius: 12px; font-size: 14px; z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  .loading { text-align: center; color: var(--muted); padding: 60px 0; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>🎬 <span id="title">טוען סרטון...</span> <span class="badge">ביקורת</span></h1>
 
-  <div class="stage-box" id="stageBox">
-    <div class="stage" id="stage">
-      <video id="player" controls playsinline></video>
-      <canvas id="drawCanvas"></canvas>
-    </div>
+<!-- ═══ כניסה ═══ -->
+<section id="vLogin" class="login hidden">
+  <div class="login-card">
+    <div class="logo">🎬</div>
+    <h1>חדר הביקורת</h1>
+    <p>כאן צופים בסרטונים שנשלחו אליך, משאירים הערות בנקודה המדויקת בסרטון, ועוקבים אחרי התיקונים.<br>הכניסה עם חשבון Google — רק מי שקיבל הזמנה רואה את הסרטונים.</p>
+    <button class="btn gbtn" id="btnGoogle">
+      <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+      כניסה עם Google
+    </button>
+    <div id="loginNote" class="note err hidden"></div>
+  </div>
+</section>
 
-    <div class="toolbar" style="margin-top:10px">
-      <button class="primary" id="btnComment">💬 הוסף הערה בנקודה זו</button>
-      <button id="btnDraw">✏️ סמן על המסך</button>
-      <span class="time-chip" id="curTime">0:00</span>
-      <div class="tools" id="tools">
-        <button data-tool="pen" class="active">🖊 עט</button>
-        <button data-tool="marker">🖍 מרקר</button>
-        <button data-tool="rect">▭ מלבן</button>
-        <button data-tool="circle">◯ עיגול</button>
-        <input type="color" id="color" value="#ff3355" title="צבע">
-        <button id="btnUndo">↩ בטל</button>
-        <button id="btnClearDraw">🗑 נקה</button>
+<!-- ═══ סרגל עליון ═══ -->
+<header id="topBar" class="top hidden">
+  <div class="brand"><div class="logo">🎬</div>חדר הביקורת</div>
+  <div class="spacer"></div>
+  <div class="user"><span id="userName"></span><div class="avatar" id="userAvatar"></div></div>
+  <button class="btn small ghost" id="btnLogout">יציאה</button>
+</header>
+
+<!-- ═══ דשבורד ═══ -->
+<main id="vDash" class="wrap hidden">
+  <div class="hello"><h2 id="helloTitle">שלום!</h2><p id="helloSub">אלה הסרטונים שנשלחו אליך לביקורת.</p></div>
+  <div class="stats" id="stats"></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty hidden" id="dashEmpty"></div>
+</main>
+
+<!-- ═══ צפייה בסרטון ═══ -->
+<main id="vReview" class="wrap hidden">
+  <button class="back" id="btnBack">→ חזרה לכל הסרטונים</button>
+  <div class="rv-head">
+    <div style="flex:1;min-width:200px"><h2 id="rvTitle"></h2><div class="sub" id="rvSub"></div></div>
+    <div id="rvBadge"></div>
+  </div>
+  <div class="rv">
+    <div>
+      <div class="stage" id="stage">
+        <video id="player" controls playsinline preload="metadata"></video>
+        <canvas id="drawCanvas"></canvas>
+        <div class="draw-hint">✏️ צייר על המסך כדי לסמן</div>
+        <div class="viewing-hint hidden" id="viewHint">מוצג סימון של הערה · לחץ ▶ להמשך</div>
+      </div>
+
+      <div class="composer" id="composer">
+        <div class="composer-row">
+          <b style="font-size:14.5px">הערה חדשה</b>
+          <span class="tchip" id="cTime" title="הזמן בסרטון">0:00</span>
+          <button class="link" id="btnUseNow">↻ עדכן לזמן הנוכחי</button>
+          <div class="spacer"></div>
+          <button class="btn small" id="btnDraw">✏️ סמן על המסך</button>
+        </div>
+        <div class="tools" id="tools">
+          <button class="tool on" data-tool="pen">🖊 עט</button>
+          <button class="tool" data-tool="marker">🖍 מרקר</button>
+          <button class="tool" data-tool="rect">▭ מלבן</button>
+          <button class="tool" data-tool="circle">◯ עיגול</button>
+          <input type="color" id="color" value="#ff3b6b">
+          <button class="tool" id="btnUndo">↶ בטל</button>
+          <button class="tool" id="btnClear">נקה</button>
+          <span id="drawCount" style="font-size:12.5px;color:var(--muted)"></span>
+        </div>
+        <textarea id="cText" placeholder="מה לשנות כאן? (העצר את הסרטון בנקודה הרצויה וכתוב)"></textarea>
+        <div class="composer-row">
+          <span style="font-size:12.5px;color:var(--dim)">Ctrl+Enter לשליחה</span>
+          <div class="spacer"></div>
+          <button class="btn primary" id="btnSend">שלח הערה</button>
+        </div>
+      </div>
+
+      <div class="approved-bar hidden" id="approvedBar"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap" id="approveRow">
+        <button class="btn ok" id="btnApprove">✔ הסרטון מאושר — אין לי עוד הערות</button>
       </div>
     </div>
-  </div>
 
-  <div class="comment-box" id="commentBox" style="display:none">
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="time-chip" id="cTime">0:00</span>
-      <span style="font-size:13px;color:#94a3b8" id="cDrawNote"></span>
-    </div>
-    <textarea id="cText" placeholder="מה תרצה לשנות בנקודה הזו?"></textarea>
-    <input type="text" id="cName" placeholder="השם שלך (חד-פעמי)" style="max-width:220px">
-    <div style="display:flex;gap:8px">
-      <button class="primary" id="btnSend">שלח הערה</button>
-      <button id="btnCancel">ביטול</button>
-    </div>
+    <aside class="side">
+      <div class="side-head">
+        <b id="cmCount">הערות</b>
+        <div class="filters">
+          <button class="fchip on" data-f="open">ממתינות לתיקון</button>
+          <button class="fchip" data-f="done">תוקנו</button>
+          <button class="fchip" data-f="all">הכל</button>
+        </div>
+      </div>
+      <div class="list" id="cmList"></div>
+    </aside>
   </div>
+</main>
 
-  <div class="hint">
-    💡 עצור את הסרטון בנקודה שתרצה להעיר עליה ולחץ "הוסף הערה" — ההערה נשמרת עם הזמן המדויק.
-    אפשר גם לצייר על המסך (עט/מרקר/מלבן/עיגול) והעורך יראה בדיוק את מה שסימנת.
-  </div>
-
-  <div class="list" id="list"><div class="loading">טוען הערות...</div></div>
-</div>
+<div class="toast hidden" id="toast"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
-/* ═══ הדבק כאן את פרטי ה-Firebase שלך (אותם פרטים כמו בתוסף) ═══ */
+/* ═══ פרטי הפרויקט — מוזנים אוטומטית ע"י התוסף ═══ */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDQF32KC-27iq2EFPoKCzSUGGxZbyQkCNk",
+  authDomain: "video-review-hub-382c7.firebaseapp.com",
   projectId: "video-review-hub-382c7",
 };
-/* ══════════════════════════════════════════════════════════════ */
+const ADMIN_EMAILS = [];
+/* ═══════════════════════════════════════════════════ */
 
 firebase.initializeApp(FIREBASE_CONFIG);
-const db = firebase.firestore();
-const reviewId = new URLSearchParams(location.search).get('r');
+const auth = firebase.auth(), db = firebase.firestore();
 const $ = id => document.getElementById(id);
-const player = $('player'), stage = $('stage'), canvas = $('drawCanvas'), ctx = canvas.getContext('2d');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtT = s => `${Math.floor((s || 0) / 60)}:${String(Math.floor((s || 0) % 60)).padStart(2, '0')}`;
+const fmtD = ms => ms ? new Date(ms).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+const toast = (t, ms = 2600) => { const el = $('toast'); el.textContent = t; show('toast', true); clearTimeout(toast._t); toast._t = setTimeout(() => show('toast', false), ms); };
 
-const fmtT = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-setInterval(() => $('curTime').textContent = fmtT(player.currentTime || 0), 300);
+let me = null, isAdmin = false;
+let reviews = [];                // [{id, ...data}]
+const counts = {};               // id -> {open, done, total, last}
+const unsubs = { reviews: null, comments: {}, current: null };
+let dashFilter = 'all';
+let current = null, comments = [], cmFilter = 'open', editingId = null;
 
-/* ── Load review ── */
-if (!reviewId) { $('title').textContent = 'קישור לא תקין (חסר מזהה)'; }
-else db.collection('reviews').doc(reviewId).get().then(doc => {
-  if (!doc.exists) { $('title').textContent = 'הסרטון לא נמצא'; return; }
-  const d = doc.data();
-  $('title').textContent = d.name || 'סרטון לביקורת';
-  player.src = d.videoUrl;
-});
-
-/* ── Comments list (live) ── */
-if (reviewId) db.collection('reviews').doc(reviewId).collection('comments')
-  .orderBy('time').onSnapshot(snap => {
-    const list = $('list'); list.innerHTML = '';
-    if (snap.empty) { list.innerHTML = '<div class="loading">עדיין אין הערות — היה הראשון!</div>'; return; }
-    snap.forEach(doc => {
-      const c = doc.data();
-      const el = document.createElement('div');
-      el.className = 'item' + (c.done ? ' done' : '');
-      el.innerHTML = `<span class="t">▶ ${fmtT(c.time)}</span>
-        <div class="txt">${(c.text||'').replace(/</g,'&lt;')}
-          <div class="meta">${c.author||'אנונימי'}${c.drawing?' · ✏️ כולל סימון':''}${c.done?' · ✅ טופל':''}</div>
-        </div>`;
-      el.querySelector('.t').onclick = () => { player.currentTime = c.time; player.pause(); };
-      list.appendChild(el);
-    });
-  });
-
-/* ── Drawing ── */
-let drawMode = false, tool = 'pen', strokes = [], current = null;
-const resizeCanvas = () => { canvas.width = stage.clientWidth; canvas.height = stage.clientHeight; render(); };
-new ResizeObserver(resizeCanvas).observe(stage);
-
-function render() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  const W = canvas.width, H = canvas.height;
-  for (const s of strokes.concat(current?[current]:[])) {
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.tool==='marker'?12:3.5;
-    ctx.globalAlpha = s.tool==='marker'?0.45:1; ctx.lineCap='round'; ctx.lineJoin='round';
-    const p = s.points.map(q=>[q[0]*W,q[1]*H]);
-    if (!p.length) continue;
-    ctx.beginPath();
-    if (s.tool==='rect'&&p.length>=2) ctx.strokeRect(p[0][0],p[0][1],p[1][0]-p[0][0],p[1][1]-p[0][1]);
-    else if (s.tool==='circle'&&p.length>=2){
-      ctx.ellipse((p[0][0]+p[1][0])/2,(p[0][1]+p[1][1])/2,Math.abs(p[1][0]-p[0][0])/2,Math.abs(p[1][1]-p[0][1])/2,0,0,Math.PI*2);ctx.stroke();
-    } else { ctx.moveTo(p[0][0],p[0][1]); for(const q of p.slice(1)) ctx.lineTo(q[0],q[1]); ctx.stroke(); }
-    ctx.globalAlpha = 1;
+/* ═══ כניסה ═══ */
+$('btnGoogle').onclick = async () => {
+  show('loginNote', false);
+  try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+  catch (e) {
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') return auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') loginError('הכניסה נכשלה: ' + (e.message || e.code));
   }
-}
+};
+$('btnLogout').onclick = () => auth.signOut();
+const loginError = t => { $('loginNote').innerHTML = t; show('loginNote', true); };
 
-const norm = e => {
-  const r = canvas.getBoundingClientRect();
-  const x = (e.touches?e.touches[0].clientX:e.clientX) - r.left;
-  const y = (e.touches?e.touches[0].clientY:e.clientY) - r.top;
-  return [Math.max(0,Math.min(1,x/r.width)), Math.max(0,Math.min(1,y/r.height))];
-};
-const startDraw = e => { if(!drawMode)return; e.preventDefault();
-  const p = norm(e);
-  current = { tool, color: $('color').value, points: tool==='rect'||tool==='circle' ? [p,p] : [p] };
-};
-const moveDraw = e => { if(!current)return; e.preventDefault();
-  const p = norm(e);
-  if (tool==='rect'||tool==='circle') current.points[1]=p; else current.points.push(p);
-  render();
-};
-const endDraw = () => { if(current){strokes.push(current);current=null;render();} };
-canvas.addEventListener('mousedown',startDraw); canvas.addEventListener('mousemove',moveDraw);
-window.addEventListener('mouseup',endDraw);
-canvas.addEventListener('touchstart',startDraw,{passive:false});
-canvas.addEventListener('touchmove',moveDraw,{passive:false});
-canvas.addEventListener('touchend',endDraw);
-
-$('btnDraw').onclick = () => {
-  drawMode = !drawMode;
-  player.pause();
-  stage.classList.toggle('drawing', drawMode);
-  $('stageBox').classList.toggle('drawing-mode', drawMode);
-  $('btnDraw').classList.toggle('active', drawMode);
-  resizeCanvas();
-  if (drawMode) openCommentBox();
-};
-document.querySelectorAll('#tools [data-tool]').forEach(b => b.onclick = () => {
-  tool = b.dataset.tool;
-  document.querySelectorAll('#tools [data-tool]').forEach(x=>x.classList.toggle('active',x===b));
+auth.onAuthStateChanged(u => {
+  cleanup();
+  me = u;
+  if (!u) { show('vLogin', true); show('topBar', false); show('vDash', false); show('vReview', false); return; }
+  isAdmin = ADMIN_EMAILS.includes((u.email || '').toLowerCase());
+  show('vLogin', false); show('topBar', true);
+  $('userName').textContent = u.displayName || u.email;
+  $('userAvatar').innerHTML = u.photoURL ? `<img src="${esc(u.photoURL)}" referrerpolicy="no-referrer">` : esc((u.displayName || u.email || '?')[0]);
+  $('helloTitle').textContent = `שלום ${(u.displayName || '').split(' ')[0] || ''}!`.replace(' !', '!');
+  $('helloSub').textContent = isAdmin ? 'מצב עורך — אתה רואה את כל הסרטונים.' : 'אלה הסרטונים שנשלחו אליך לביקורת.';
+  listenReviews();
 });
-$('btnUndo').onclick = () => { strokes.pop(); render(); };
-$('btnClearDraw').onclick = () => { strokes=[]; render(); };
 
-/* ── Add comment ── */
-function openCommentBox() {
-  player.pause();
-  $('commentBox').style.display = 'flex';
-  $('cTime').textContent = fmtT(player.currentTime);
-  $('cName').value = localStorage.getItem('reviewer_name') || '';
-  $('cDrawNote').textContent = strokes.length ? `✏️ כולל ${strokes.length} סימונים` : '';
-  $('cText').focus();
+function cleanup() {
+  if (unsubs.reviews) unsubs.reviews(); unsubs.reviews = null;
+  Object.values(unsubs.comments).forEach(f => f()); unsubs.comments = {};
+  if (unsubs.current) unsubs.current(); unsubs.current = null;
 }
-$('btnComment').onclick = openCommentBox;
-$('btnCancel').onclick = () => { $('commentBox').style.display='none'; };
+
+/* ═══ דשבורד ═══ */
+function listenReviews() {
+  const email = (me.email || '').toLowerCase();
+  const q = isAdmin ? db.collection('reviews') : db.collection('reviews').where('clientEmails', 'array-contains', email);
+  show('vDash', true); $('grid').innerHTML = '<div class="loading">טוען סרטונים…</div>';
+  unsubs.reviews = q.onSnapshot(snap => {
+    reviews = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    // מאזינים להערות של כל סרטון (לספירות בכרטיסים)
+    const ids = new Set(reviews.map(r => r.id));
+    for (const id of Object.keys(unsubs.comments)) if (!ids.has(id)) { unsubs.comments[id](); delete unsubs.comments[id]; }
+    for (const r of reviews) if (!unsubs.comments[r.id]) {
+      unsubs.comments[r.id] = db.collection('reviews').doc(r.id).collection('comments').onSnapshot(cs => {
+        const all = cs.docs.map(d => d.data());
+        counts[r.id] = { open: all.filter(c => !c.done).length, done: all.filter(c => c.done).length, total: all.length, mine: all.filter(c => c.uid === me.uid).length };
+        renderDash();
+      }, () => {});
+    }
+    renderDash();
+    const want = new URLSearchParams(location.search).get('r');
+    if (want && !current) {
+      const r = reviews.find(x => x.id === want);
+      if (r) openReview(r.id);
+      else if (snap.metadata && !snap.metadata.fromCache) toast('הסרטון מהקישור לא זמין לחשבון הזה', 4000);
+    }
+  }, err => {
+    $('grid').innerHTML = '';
+    showEmpty(err.code === 'permission-denied'
+      ? `החשבון <b>${esc(me.email)}</b> עדיין לא קיבל גישה.<br>בקש מהעורך להוסיף את המייל הזה, ואז רענן את הדף.`
+      : 'שגיאה בטעינה: ' + esc(err.message));
+  });
+}
+
+function stateOf(r) {
+  const c = counts[r.id] || { open: 0, done: 0, total: 0 };
+  if (r.status === 'approved') return { key: 'ok', label: '✔ אושר', cls: 'b-ok' };
+  if (c.open > 0) return { key: 'fix', label: `🛠 ${c.open} ממתינות לתיקון`, cls: 'b-fix' };
+  if (c.total > 0 && c.open === 0) return { key: 'wait', label: '✨ התיקונים בוצעו — לצפייה חוזרת', cls: 'b-wait' };
+  return { key: 'new', label: '👀 ממתין לצפייה שלך', cls: 'b-new' };
+}
+
+function showEmpty(html) { $('dashEmpty').innerHTML = html; show('dashEmpty', true); }
+
+function renderDash() {
+  if (current) return;
+  const st = reviews.map(r => stateOf(r).key);
+  const n = k => st.filter(x => x === k).length;
+  const tabs = [
+    ['all', reviews.length, 'כל הסרטונים'],
+    ['new', n('new') + n('wait'), 'ממתינים לצפייה'],
+    ['fix', n('fix'), 'בתיקונים'],
+    ['ok', n('ok'), 'אושרו'],
+  ];
+  $('stats').innerHTML = tabs.map(([k, v, l]) => `<div class="stat ${dashFilter === k ? 'on' : ''}" data-k="${k}"><b>${v}</b><span>${l}</span></div>`).join('');
+  $('stats').querySelectorAll('.stat').forEach(el => el.onclick = () => { dashFilter = el.dataset.k; renderDash(); });
+  const list = reviews.filter(r => { const k = stateOf(r).key; return dashFilter === 'all' || k === dashFilter || (dashFilter === 'new' && k === 'wait'); });
+  show('dashEmpty', false);
+  if (!reviews.length) { $('grid').innerHTML = ''; showEmpty('עדיין אין סרטונים שנשלחו אליך.<br>כשהעורך ישלח סרטון — הוא יופיע כאן.'); return; }
+  if (!list.length) { $('grid').innerHTML = ''; showEmpty('אין סרטונים בקטגוריה הזו 🎉'); return; }
+  $('grid').innerHTML = list.map(r => {
+    const s = stateOf(r), c = counts[r.id] || { open: 0, done: 0 };
+    return `<div class="card" data-id="${esc(r.id)}">
+      <div class="thumb">${r.thumbUrl ? `<img src="${esc(r.thumbUrl)}" loading="lazy" onerror="this.remove()">` : ''}🎬${(r.version || 1) > 1 ? `<span class="ver">גרסה ${r.version}</span>` : ''}</div>
+      <div class="card-body">
+        <div class="card-title">${esc(r.name || 'סרטון')}</div>
+        <span class="badge ${s.cls}">${s.label}</span>
+        <div class="card-meta"><span>📅 ${fmtD(r.createdAt)}</span>${c.open + c.done ? `<span>💬 ${c.open + c.done} הערות · ${c.done} תוקנו</span>` : ''}</div>
+      </div></div>`;
+  }).join('');
+  $('grid').querySelectorAll('.card').forEach(el => el.onclick = () => openReview(el.dataset.id));
+}
+
+/* ═══ צפייה וההערות ═══ */
+function openReview(id) {
+  const r = reviews.find(x => x.id === id); if (!r) return;
+  current = r; comments = []; editingId = null; strokes = []; viewing = null;
+  history.replaceState(null, '', '?r=' + encodeURIComponent(id));
+  show('vDash', false); show('vReview', true); window.scrollTo(0, 0);
+  $('rvTitle').textContent = r.name || 'סרטון';
+  $('rvSub').textContent = `נשלח ${fmtD(r.createdAt)}${(r.version || 1) > 1 ? ` · גרסה ${r.version}` : ''}${r.note ? ' · ' + r.note : ''}`;
+  if (player.src !== r.videoUrl) player.src = r.videoUrl;
+  renderHeader();
+  if (unsubs.current) unsubs.current();
+  unsubs.current = db.collection('reviews').doc(id).collection('comments').onSnapshot(snap => {
+    comments = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.time - b.time || a.createdAt - b.createdAt);
+    renderComments(); renderHeader();
+  }, err => toast('שגיאה בטעינת ההערות: ' + err.message, 4000));
+  setDraw(false); resizeCanvas(); updateTime();
+}
+$('btnBack').onclick = () => {
+  if (unsubs.current) unsubs.current(); unsubs.current = null;
+  current = null; player.pause(); history.replaceState(null, '', location.pathname);
+  show('vReview', false); show('vDash', true); renderDash();
+};
+
+function renderHeader() {
+  if (!current) return;
+  const r = reviews.find(x => x.id === current.id) || current; current = r;
+  const s = stateOf(r);
+  $('rvBadge').innerHTML = `<span class="badge ${s.cls}" style="font-size:13px;padding:5px 12px">${s.label}</span>`;
+  const approved = r.status === 'approved';
+  show('approvedBar', approved); show('approveRow', !approved);
+  if (approved) $('approvedBar').innerHTML = `✔ הסרטון אושר${r.approvedBy ? ' ע"י ' + esc(r.approvedBy) : ''} ${r.approvedAt ? '· ' + fmtD(r.approvedAt) : ''} <span class="spacer"></span><button class="btn small" id="btnUnapprove">בטל אישור</button>`;
+  if (approved) $('btnUnapprove').onclick = () => setApproved(false);
+}
+
+async function setApproved(on) {
+  try {
+    await db.collection('reviews').doc(current.id).update(on
+      ? { status: 'approved', approvedBy: me.displayName || me.email, approvedAt: Date.now(), lastActivity: Date.now() }
+      : { status: 'review', approvedBy: '', approvedAt: 0, lastActivity: Date.now() });
+    toast(on ? 'תודה! הסרטון סומן כמאושר ✔' : 'האישור בוטל');
+  } catch (e) { toast('הפעולה נכשלה: ' + e.message, 4000); }
+}
+$('btnApprove').onclick = () => {
+  const open = comments.filter(c => !c.done).length;
+  if (open && !confirm(`יש עדיין ${open} הערות שלא תוקנו. לאשר בכל זאת?`)) return;
+  setApproved(true);
+};
+
+document.querySelectorAll('.fchip').forEach(b => b.onclick = () => { cmFilter = b.dataset.f; document.querySelectorAll('.fchip').forEach(x => x.classList.toggle('on', x === b)); renderComments(); });
+
+function renderComments() {
+  const open = comments.filter(c => !c.done).length, done = comments.length - open;
+  $('cmCount').textContent = `הערות · ${open} ממתינות · ${done} תוקנו`;
+  const list = comments.filter(c => cmFilter === 'all' || (cmFilter === 'open' ? !c.done : c.done));
+  if (!list.length) {
+    $('cmList').innerHTML = `<div class="empty" style="padding:30px 14px;font-size:14px">${cmFilter === 'open' ? (comments.length ? 'כל ההערות תוקנו 🎉' : 'עדיין אין הערות.<br>עצור את הסרטון בנקודה הרצויה וכתוב הערה.') : 'אין הערות כאן'}</div>`;
+    return;
+  }
+  $('cmList').innerHTML = list.map(c => {
+    const mine = c.uid === me.uid, canEdit = mine && !c.done;
+    if (editingId === c.id) return `<div class="cm" data-id="${c.id}">
+      <div class="cm-top"><span class="cm-time">${fmtT(c.time)}</span><span class="cm-author">עריכת הערה</span></div>
+      <textarea class="edit-text">${esc(c.text)}</textarea>
+      <div class="cm-actions"><button class="btn small primary act-save">שמור</button><button class="btn small act-cancel">ביטול</button><button class="link act-retime">↻ קבע לזמן הנוכחי (${fmtT(player.currentTime)})</button></div></div>`;
+    return `<div class="cm ${c.done ? 'done' : ''} ${viewing === c.id ? 'active' : ''}" data-id="${c.id}">
+      <div class="cm-top"><button class="cm-time act-seek">▶ ${fmtT(c.time)}</button><span class="cm-author">${esc(c.author || 'לקוח')}${mine ? ' (אני)' : ''} · ${fmtD(c.createdAt)}${c.updatedAt && c.updatedAt - c.createdAt > 5000 && !c.done ? ' · נערך' : ''}</span>
+        ${c.done ? '<span class="badge b-ok">✔ תוקן</span>' : '<span class="badge b-fix">ממתין</span>'}</div>
+      ${c.text ? `<div class="cm-text">${esc(c.text)}</div>` : ''}
+      <div class="cm-actions">
+        ${c.drawing ? '<button class="link act-draw">✏️ הצג סימון</button>' : ''}
+        ${canEdit ? '<button class="link act-edit">עריכה</button><button class="link danger act-del">מחיקה</button>' : ''}
+        ${isAdmin ? `<button class="link act-done">${c.done ? '↺ סמן כלא תוקן' : '✔ סמן כתוקן'}</button>` : ''}
+      </div></div>`;
+  }).join('');
+  $('cmList').querySelectorAll('.cm').forEach(el => {
+    const c = comments.find(x => x.id === el.dataset.id); if (!c) return;
+    const on = (sel, fn) => { const b = el.querySelector(sel); if (b) b.onclick = e => { e.stopPropagation(); fn(); }; };
+    on('.act-seek', () => seekTo(c, true));
+    on('.act-draw', () => seekTo(c, true));
+    on('.act-edit', () => { editingId = c.id; renderComments(); el.querySelector && setTimeout(() => { const t = $('cmList').querySelector('.edit-text'); if (t) t.focus(); }, 0); });
+    on('.act-cancel', () => { editingId = null; renderComments(); });
+    on('.act-retime', () => { c._newTime = Math.round(player.currentTime * 100) / 100; el.querySelector('.act-retime').textContent = `✓ הזמן יעודכן ל-${fmtT(c._newTime)}`; });
+    on('.act-save', async () => {
+      const text = el.querySelector('.edit-text').value.trim();
+      if (!text && !c.drawing) return toast('ההערה ריקה — אפשר למחוק אותה');
+      try { await cmRef(c.id).update({ text, updatedAt: Date.now(), ...(c._newTime !== undefined ? { time: c._newTime } : {}) }); editingId = null; renderComments(); toast('ההערה עודכנה'); }
+      catch (e) { toast('השמירה נכשלה: ' + e.message, 4000); }
+    });
+    on('.act-del', async () => {
+      if (!confirm('למחוק את ההערה?')) return;
+      try { await cmRef(c.id).delete(); toast('ההערה נמחקה'); } catch (e) { toast('המחיקה נכשלה: ' + e.message, 4000); }
+    });
+    on('.act-done', async () => { try { await cmRef(c.id).update({ done: !c.done, updatedAt: Date.now() }); } catch (e) { toast(e.message, 4000); } });
+  });
+}
+const cmRef = id => db.collection('reviews').doc(current.id).collection('comments').doc(id);
+
+function seekTo(c, showDrawing) {
+  player.currentTime = c.time; player.pause();
+  viewing = showDrawing && c.drawing ? c.id : null;
+  viewStrokes = viewing ? (typeof c.drawing === 'string' ? JSON.parse(c.drawing) : c.drawing) : [];
+  show('viewHint', !!viewing); render(); renderComments();
+}
+
+/* ═══ הערה חדשה ═══ */
+const player = $('player');
+let commentTime = 0;
+function updateTime() { commentTime = Math.round((player.currentTime || 0) * 100) / 100; $('cTime').textContent = fmtT(commentTime); }
+player.addEventListener('pause', updateTime);
+player.addEventListener('seeked', () => { if (player.paused) updateTime(); });
+player.addEventListener('play', () => { if (viewing) { viewing = null; viewStrokes = []; show('viewHint', false); render(); renderComments(); } });
+$('btnUseNow').onclick = updateTime;
+$('cText').addEventListener('focus', () => { if (!player.paused) { player.pause(); } updateTime(); });
+$('cText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('btnSend').click(); });
 
 $('btnSend').onclick = async () => {
   const text = $('cText').value.trim();
-  if (!text && strokes.length === 0) return alert('כתוב הערה או צייר סימון');
-  const author = $('cName').value.trim() || 'לקוח';
-  localStorage.setItem('reviewer_name', author);
+  if (!text && !strokes.length) return toast('כתוב הערה או סמן על המסך');
   $('btnSend').disabled = true;
   try {
-    await db.collection('reviews').doc(reviewId).collection('comments').add({
-      time: Math.round(player.currentTime * 100) / 100,
-      text, author, done: false,
-      drawing: strokes.length ? JSON.stringify(strokes) : null,
-      createdAt: Date.now(),
+    await db.collection('reviews').doc(current.id).collection('comments').add({
+      time: commentTime, text, done: false, drawing: strokes.length ? JSON.stringify(strokes) : null,
+      author: me.displayName || me.email, authorEmail: (me.email || '').toLowerCase(), uid: me.uid,
+      createdAt: Date.now(), updatedAt: Date.now(),
     });
-    $('cText').value=''; $('commentBox').style.display='none';
-    strokes=[]; render();
-    if (drawMode) $('btnDraw').click();
-  } catch(e) { alert('שגיאה בשליחה: '+e.message); }
+    db.collection('reviews').doc(current.id).update({ lastActivity: Date.now() }).catch(() => {});
+    $('cText').value = ''; strokes = []; setDraw(false); render();
+    cmFilter = 'open'; document.querySelectorAll('.fchip').forEach(x => x.classList.toggle('on', x.dataset.f === 'open'));
+    toast('ההערה נשלחה ✓');
+  } catch (e) { toast('השליחה נכשלה: ' + e.message, 4000); }
   $('btnSend').disabled = false;
 };
+
+/* ═══ ציור על הפריים ═══ */
+const stage = $('stage'), canvas = $('drawCanvas'), ctx = canvas.getContext('2d');
+let drawMode = false, tool = 'pen', strokes = [], cur = null, viewing = null, viewStrokes = [];
+function resizeCanvas() { canvas.width = stage.clientWidth; canvas.height = stage.clientHeight; render(); }
+new ResizeObserver(resizeCanvas).observe(stage);
+function drawSet(list, alpha) {
+  const W = canvas.width, H = canvas.height;
+  for (const s of list) {
+    ctx.strokeStyle = s.color || '#ff3b6b'; ctx.lineWidth = s.tool === 'marker' ? 12 : 3.5;
+    ctx.globalAlpha = (s.tool === 'marker' ? 0.45 : 1) * alpha; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const p = (s.points || []).map(q => [q[0] * W, q[1] * H]); if (!p.length) continue;
+    ctx.beginPath();
+    if (s.tool === 'rect' && p.length >= 2) ctx.strokeRect(p[0][0], p[0][1], p[1][0] - p[0][0], p[1][1] - p[0][1]);
+    else if (s.tool === 'circle' && p.length >= 2) { ctx.ellipse((p[0][0] + p[1][0]) / 2, (p[0][1] + p[1][1]) / 2, Math.abs(p[1][0] - p[0][0]) / 2, Math.abs(p[1][1] - p[0][1]) / 2, 0, 0, Math.PI * 2); ctx.stroke(); }
+    else { ctx.moveTo(p[0][0], p[0][1]); for (const q of p.slice(1)) ctx.lineTo(q[0], q[1]); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+}
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (viewing) drawSet(viewStrokes, 1);
+  drawSet(strokes.concat(cur ? [cur] : []), 1);
+  $('drawCount').textContent = strokes.length ? `${strokes.length} סימונים` : '';
+}
+function setDraw(on) {
+  drawMode = on; if (on) { player.pause(); updateTime(); }
+  stage.classList.toggle('drawing', on); $('composer').classList.toggle('drawing', on);
+  $('btnDraw').textContent = on ? '✓ סיימתי לסמן' : '✏️ סמן על המסך';
+  resizeCanvas();
+}
+$('btnDraw').onclick = () => setDraw(!drawMode);
+const norm = e => {
+  const r = canvas.getBoundingClientRect(), t = e.touches ? e.touches[0] : e;
+  return [Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (t.clientY - r.top) / r.height))];
+};
+const startD = e => { if (!drawMode) return; e.preventDefault(); const p = norm(e); cur = { tool, color: $('color').value, points: tool === 'rect' || tool === 'circle' ? [p, p] : [p] }; };
+const moveD = e => { if (!cur) return; e.preventDefault(); const p = norm(e); if (tool === 'rect' || tool === 'circle') cur.points[1] = p; else cur.points.push(p); render(); };
+const endD = () => { if (cur) { strokes.push(cur); cur = null; render(); } };
+canvas.addEventListener('mousedown', startD); canvas.addEventListener('mousemove', moveD); window.addEventListener('mouseup', endD);
+canvas.addEventListener('touchstart', startD, { passive: false }); canvas.addEventListener('touchmove', moveD, { passive: false }); canvas.addEventListener('touchend', endD);
+document.querySelectorAll('#tools [data-tool]').forEach(b => b.onclick = () => { tool = b.dataset.tool; document.querySelectorAll('#tools [data-tool]').forEach(x => x.classList.toggle('on', x === b)); });
+$('btnUndo').onclick = () => { strokes.pop(); render(); };
+$('btnClear').onclick = () => { strokes = []; render(); };
 </script>
 </body>
 </html>
