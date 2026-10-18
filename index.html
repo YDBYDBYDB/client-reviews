@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
 <title>חדר הביקורת</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -142,6 +144,7 @@
   <div class="brand"><div class="logo">🎬</div>חדר הביקורת</div>
   <div class="spacer"></div>
   <div class="user"><span id="userName"></span><div class="avatar" id="userAvatar"></div></div>
+  <button class="btn small ghost hidden" id="btnGuestLogin">כניסה עם Google</button>
   <button class="btn small ghost" id="btnLogout">יציאה</button>
 </header>
 
@@ -187,6 +190,7 @@
           <button class="tool" id="btnClear">נקה</button>
           <span id="drawCount" style="font-size:12.5px;color:var(--muted)"></span>
         </div>
+        <input id="cName" class="hidden" placeholder="השם שלך (יופיע ליד ההערה)" style="background:var(--bg);border:1px solid var(--line2);border-radius:10px;color:var(--text);padding:9px 12px;font-size:15px;font-family:inherit">
         <textarea id="cText" placeholder="מה לשנות כאן? (העצר את הסרטון בנקודה הרצויה וכתוב)"></textarea>
         <div class="composer-row">
           <span style="font-size:12.5px;color:var(--dim)">Ctrl+Enter לשליחה</span>
@@ -227,7 +231,7 @@ const FIREBASE_CONFIG = {
   authDomain: "video-review-hub-382c7.firebaseapp.com",
   projectId: "video-review-hub-382c7",
 };
-const ADMIN_EMAILS = [];
+const ADMIN_EMAILS = ["ydbdov@gmail.com"];
 /* ═══════════════════════════════════════════════════ */
 
 firebase.initializeApp(FIREBASE_CONFIG);
@@ -239,7 +243,8 @@ const fmtD = ms => ms ? new Date(ms).toLocaleDateString('he-IL', { day: 'numeric
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 const toast = (t, ms = 2600) => { const el = $('toast'); el.textContent = t; show('toast', true); clearTimeout(toast._t); toast._t = setTimeout(() => show('toast', false), ms); };
 
-let me = null, isAdmin = false;
+let me = null, isAdmin = false, guest = false;
+const wantId = new URLSearchParams(location.search).get('r');
 let reviews = [];                // [{id, ...data}]
 const counts = {};               // id -> {open, done, total, last}
 const unsubs = { reviews: null, comments: {}, current: null };
@@ -256,20 +261,42 @@ $('btnGoogle').onclick = async () => {
   }
 };
 $('btnLogout').onclick = () => auth.signOut();
+$('btnGuestLogin').onclick = () => $('btnGoogle').click();
 const loginError = t => { $('loginNote').innerHTML = t; show('loginNote', true); };
 
-auth.onAuthStateChanged(u => {
+auth.onAuthStateChanged(async u => {
+  if (u && u.isAnonymous && guest && current) { me = u; renderComments(); return; } // אורח שהתחבר עכשיו אנונימית — ממשיכים באותו מסך
   cleanup();
-  me = u;
-  if (!u) { show('vLogin', true); show('topBar', false); show('vDash', false); show('vReview', false); return; }
+  me = u; guest = false; current = null;
+  // קישור פתוח: בלי התחברות, או כאורח (התחברות אנונימית שנוצרת בהערה הראשונה)
+  if ((!u || u.isAnonymous) && wantId) {
+    const ok = await openPublic(wantId);
+    if (ok) return;
+  }
+  if (!u || u.isAnonymous) { show('vLogin', true); show('topBar', false); show('vDash', false); show('vReview', false); return; }
   isAdmin = ADMIN_EMAILS.includes((u.email || '').toLowerCase());
-  show('vLogin', false); show('topBar', true);
+  show('vLogin', false); show('topBar', true); show('btnGuestLogin', false); show('btnLogout', true); show('btnBack', true);
   $('userName').textContent = u.displayName || u.email;
   $('userAvatar').innerHTML = u.photoURL ? `<img src="${esc(u.photoURL)}" referrerpolicy="no-referrer">` : esc((u.displayName || u.email || '?')[0]);
   $('helloTitle').textContent = `שלום ${(u.displayName || '').split(' ')[0] || ''}!`.replace(' !', '!');
   $('helloSub').textContent = isAdmin ? 'מצב עורך — אתה רואה את כל הסרטונים.' : 'אלה הסרטונים שנשלחו אליך לביקורת.';
   listenReviews();
 });
+
+/** פתיחת סרטון עם קישור פתוח — בלי חשבון Google */
+async function openPublic(id) {
+  try {
+    const d = await db.collection('reviews').doc(id).get();
+    if (!d.exists || d.data().public !== true) return false;
+    guest = true; isAdmin = false;
+    reviews = [{ id: d.id, ...d.data() }];
+    show('vLogin', false); show('topBar', true); show('btnGuestLogin', true); show('btnLogout', false); show('btnBack', false);
+    $('userName').textContent = me ? (localStorage.getItem('reviewer_name') || 'אורח') : 'צפייה כאורח';
+    $('userAvatar').textContent = '👤';
+    openReview(d.id);
+    return true;
+  } catch (e) { return false; }
+}
 
 function cleanup() {
   if (unsubs.reviews) unsubs.reviews(); unsubs.reviews = null;
@@ -290,7 +317,7 @@ function listenReviews() {
     for (const r of reviews) if (!unsubs.comments[r.id]) {
       unsubs.comments[r.id] = db.collection('reviews').doc(r.id).collection('comments').onSnapshot(cs => {
         const all = cs.docs.map(d => d.data());
-        counts[r.id] = { open: all.filter(c => !c.done).length, done: all.filter(c => c.done).length, total: all.length, mine: all.filter(c => c.uid === me.uid).length };
+        counts[r.id] = { open: all.filter(c => !c.done).length, done: all.filter(c => c.done).length, total: all.length, mine: 0 };
         renderDash();
       }, () => {});
     }
@@ -299,7 +326,10 @@ function listenReviews() {
     if (want && !current) {
       const r = reviews.find(x => x.id === want);
       if (r) openReview(r.id);
-      else if (snap.metadata && !snap.metadata.fromCache) toast('הסרטון מהקישור לא זמין לחשבון הזה', 4000);
+      else db.collection('reviews').doc(want).get().then(d => {
+        if (d.exists && d.data().public === true) { reviews = [{ id: d.id, ...d.data() }, ...reviews]; openReview(d.id); }
+        else toast('הסרטון מהקישור לא זמין לחשבון הזה', 4000);
+      }).catch(() => toast('הסרטון מהקישור לא זמין לחשבון הזה', 4000));
     }
   }, err => {
     $('grid').innerHTML = '';
@@ -357,6 +387,7 @@ function openReview(id) {
   $('rvTitle').textContent = r.name || 'סרטון';
   $('rvSub').textContent = `נשלח ${fmtD(r.createdAt)}${(r.version || 1) > 1 ? ` · גרסה ${r.version}` : ''}${r.note ? ' · ' + r.note : ''}`;
   if (player.src !== r.videoUrl) player.src = r.videoUrl;
+  show('cName', guest); $('cName').value = localStorage.getItem('reviewer_name') || '';
   renderHeader();
   if (unsubs.current) unsubs.current();
   unsubs.current = db.collection('reviews').doc(id).collection('comments').onSnapshot(snap => {
@@ -384,8 +415,9 @@ function renderHeader() {
 
 async function setApproved(on) {
   try {
+    if (!me) { await auth.signInAnonymously(); me = auth.currentUser; }
     await db.collection('reviews').doc(current.id).update(on
-      ? { status: 'approved', approvedBy: me.displayName || me.email, approvedAt: Date.now(), lastActivity: Date.now() }
+      ? { status: 'approved', approvedBy: me.displayName || me.email || localStorage.getItem('reviewer_name') || 'אורח', approvedAt: Date.now(), lastActivity: Date.now() }
       : { status: 'review', approvedBy: '', approvedAt: 0, lastActivity: Date.now() });
     toast(on ? 'תודה! הסרטון סומן כמאושר ✔' : 'האישור בוטל');
   } catch (e) { toast('הפעולה נכשלה: ' + e.message, 4000); }
@@ -407,7 +439,7 @@ function renderComments() {
     return;
   }
   $('cmList').innerHTML = list.map(c => {
-    const mine = c.uid === me.uid, canEdit = mine && !c.done;
+    const mine = !!me && c.uid === me.uid, canEdit = mine && !c.done;
     if (editingId === c.id) return `<div class="cm" data-id="${c.id}">
       <div class="cm-top"><span class="cm-time">${fmtT(c.time)}</span><span class="cm-author">עריכת הערה</span></div>
       <textarea class="edit-text">${esc(c.text)}</textarea>
@@ -466,11 +498,23 @@ $('cText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKe
 $('btnSend').onclick = async () => {
   const text = $('cText').value.trim();
   if (!text && !strokes.length) return toast('כתוב הערה או סמן על המסך');
+  const drawing = strokes.length ? JSON.stringify(strokes) : null, atTime = commentTime;
+  let author = '';
+  if (guest) {
+    author = $('cName').value.trim();
+    if (!author) { $('cName').focus(); return toast('כתוב את שמך כדי שנדע ממי ההערה'); }
+    localStorage.setItem('reviewer_name', author);
+  }
   $('btnSend').disabled = true;
   try {
+    if (!me) {
+      try { await auth.signInAnonymously(); } catch (e) { throw new Error('כניסה כאורח לא הופעלה עדיין אצל העורך'); }
+      me = auth.currentUser;
+      $('userName').textContent = author;
+    }
     await db.collection('reviews').doc(current.id).collection('comments').add({
-      time: commentTime, text, done: false, drawing: strokes.length ? JSON.stringify(strokes) : null,
-      author: me.displayName || me.email, authorEmail: (me.email || '').toLowerCase(), uid: me.uid,
+      time: atTime, text, done: false, drawing,
+      author: author || me.displayName || me.email || 'אורח', authorEmail: (me.email || '').toLowerCase(), uid: me.uid,
       createdAt: Date.now(), updatedAt: Date.now(),
     });
     db.collection('reviews').doc(current.id).update({ lastActivity: Date.now() }).catch(() => {});
