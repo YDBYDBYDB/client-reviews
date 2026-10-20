@@ -71,6 +71,8 @@
   .b-fix { background: var(--warnSoft); color: var(--warn); }
   .b-ok { background: var(--okSoft); color: var(--ok); }
   .b-wait { background: rgba(167,139,250,.13); color: #c4b5fd; }
+  .folder-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; margin: 10px 0 2px; color: var(--text); }
+  .folder-h span { font-size: 12.5px; color: var(--muted); font-weight: 400; }
   .empty { text-align: center; color: var(--muted); padding: 50px 20px; border: 1px dashed var(--line2); border-radius: 16px; line-height: 1.8; }
 
   /* review page */
@@ -365,7 +367,12 @@ function renderDash() {
   show('dashEmpty', false);
   if (!reviews.length) { $('grid').innerHTML = ''; showEmpty('עדיין אין סרטונים שנשלחו אליך.<br>כשהעורך ישלח סרטון — הוא יופיע כאן.'); return; }
   if (!list.length) { $('grid').innerHTML = ''; showEmpty('אין סרטונים בקטגוריה הזו 🎉'); return; }
-  $('grid').innerHTML = list.map(r => {
+  // קיבוץ לפי תיקייה (פרויקט); בלי תיקייה — בסוף
+  const groups = new Map();
+  for (const r of list) { const k = r.folder || ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+  const keys = [...groups.keys()].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'he')));
+  const showHeaders = keys.length > 1 || keys[0] !== '';
+  $('grid').innerHTML = keys.map(k => (showHeaders ? `<div class="folder-h">📁 ${esc(k || 'כללי')} <span>${groups.get(k).length} סרטונים</span></div>` : '') + groups.get(k).map(r => {
     const s = stateOf(r), c = counts[r.id] || { open: 0, done: 0 };
     return `<div class="card" data-id="${esc(r.id)}">
       <div class="thumb">${r.thumbUrl ? `<img src="${esc(r.thumbUrl)}" loading="lazy" onerror="this.remove()">` : ''}🎬${(r.version || 1) > 1 ? `<span class="ver">גרסה ${r.version}</span>` : ''}</div>
@@ -374,7 +381,7 @@ function renderDash() {
         <span class="badge ${s.cls}">${s.label}</span>
         <div class="card-meta"><span>📅 ${fmtD(r.createdAt)}</span>${c.open + c.done ? `<span>💬 ${c.open + c.done} הערות · ${c.done} תוקנו</span>` : ''}</div>
       </div></div>`;
-  }).join('');
+  }).join('')).join('');
   $('grid').querySelectorAll('.card').forEach(el => el.onclick = () => openReview(el.dataset.id));
 }
 
@@ -385,7 +392,7 @@ function openReview(id) {
   history.replaceState(null, '', '?r=' + encodeURIComponent(id));
   show('vDash', false); show('vReview', true); window.scrollTo(0, 0);
   $('rvTitle').textContent = r.name || 'סרטון';
-  $('rvSub').textContent = `נשלח ${fmtD(r.createdAt)}${(r.version || 1) > 1 ? ` · גרסה ${r.version}` : ''}${r.note ? ' · ' + r.note : ''}`;
+  $('rvSub').textContent = `${r.folder ? '📁 ' + r.folder + ' · ' : ''}נשלח ${fmtD(r.createdAt)}${(r.version || 1) > 1 ? ` · גרסה ${r.version}` : ''}${r.note ? ' · ' + r.note : ''}`;
   if (player.src !== r.videoUrl) player.src = r.videoUrl;
   show('cName', guest); $('cName').value = localStorage.getItem('reviewer_name') || '';
   renderHeader();
