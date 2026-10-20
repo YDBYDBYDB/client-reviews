@@ -457,7 +457,7 @@ function renderComments() {
       ${c.text ? `<div class="cm-text">${esc(c.text)}</div>` : ''}
       <div class="cm-actions">
         ${c.drawing ? '<button class="link act-draw">✏️ הצג סימון</button>' : ''}
-        ${canEdit ? '<button class="link act-edit">עריכה</button><button class="link danger act-del">מחיקה</button>' : ''}
+        ${canEdit ? '<button class="link act-edit">עריכה</button>' : ''}${canEdit || isAdmin ? '<button class="link danger act-del">מחיקה</button>' : ''}
         ${isAdmin ? `<button class="link act-done">${c.done ? '↺ סמן כלא תוקן' : '✔ סמן כתוקן'}</button>` : ''}
       </div></div>`;
   }).join('');
