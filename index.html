@@ -493,6 +493,22 @@ function renderComments() {
     on('.act-done', async () => { try { await cmRef(c.id).update({ done: !c.done, updatedAt: Date.now() }); } catch (e) { toast(e.message, 4000); } });
   });
 }
+const cmRef = id => db.collection('reviews').doc(current.id).collection('comments').doc(id);
+
+function seekTo(c, showDrawing) {
+  player.currentTime = c.time; player.pause();
+  viewing = showDrawing && c.drawing ? c.id : null;
+  viewStrokes = viewing ? (typeof c.drawing === 'string' ? JSON.parse(c.drawing) : c.drawing) : [];
+  show('viewHint', !!viewing); render(); renderComments();
+}
+
+/* ═══ הערה חדשה ═══ */
+const player = $('player');
+let commentTime = 0;
+function updateTime() { commentTime = Math.round((player.currentTime || 0) * 100) / 100; $('cTime').textContent = fmtT(commentTime); }
+player.addEventListener('pause', updateTime);
+player.addEventListener('seeked', () => { if (player.paused) updateTime(); });
+player.addEventListener('play', () => { if (viewing) { viewing = null; viewStrokes = []; show('viewHint', false); render(); renderComments(); } });
 /* ═══ מעקב צפייה — כדי שהעורך יידע מי נכנס ומי צפה ═══ */
 const view = { ref: null, id: null, watched: 0, maxPct: 0, lastT: null, dirty: false, timer: null };
 async function startView() {
@@ -540,22 +556,6 @@ $('gSave').onclick = () => {
 };
 $('gName').addEventListener('keydown', e => { if (e.key === 'Enter') $('gSave').click(); });
 
-const cmRef = id => db.collection('reviews').doc(current.id).collection('comments').doc(id);
-
-function seekTo(c, showDrawing) {
-  player.currentTime = c.time; player.pause();
-  viewing = showDrawing && c.drawing ? c.id : null;
-  viewStrokes = viewing ? (typeof c.drawing === 'string' ? JSON.parse(c.drawing) : c.drawing) : [];
-  show('viewHint', !!viewing); render(); renderComments();
-}
-
-/* ═══ הערה חדשה ═══ */
-const player = $('player');
-let commentTime = 0;
-function updateTime() { commentTime = Math.round((player.currentTime || 0) * 100) / 100; $('cTime').textContent = fmtT(commentTime); }
-player.addEventListener('pause', updateTime);
-player.addEventListener('seeked', () => { if (player.paused) updateTime(); });
-player.addEventListener('play', () => { if (viewing) { viewing = null; viewStrokes = []; show('viewHint', false); render(); renderComments(); } });
 $('btnUseNow').onclick = updateTime;
 $('cText').addEventListener('focus', () => { if (!player.paused) { player.pause(); } updateTime(); });
 $('cText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('btnSend').click(); });
