@@ -32,6 +32,9 @@
   .avatar img { width: 100%; height: 100%; object-fit: cover; }
   .btn { border: 1px solid var(--line2); background: var(--panel2); color: var(--text); border-radius: 10px; padding: 8px 14px; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; transition: .15s; }
   .btn:hover { border-color: var(--accent); }
+  .guest-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--panel2); border: 1px solid var(--line2); border-radius: 12px; padding: 9px 12px; margin-bottom: 10px; font-size: 14.5px; }
+  .guest-bar input { background: var(--bg); border: 1px solid var(--line2); border-radius: 9px; color: var(--text); padding: 7px 10px; font-size: 14.5px; font-family: inherit; min-width: 150px; flex: 1; max-width: 240px; }
+  .guest-bar .sub { font-size: 12.5px; }
   .btn.primary { background: linear-gradient(135deg, var(--accent2), var(--accent)); border: none; color: #fff; font-weight: 700; }
   .btn.ghost { background: transparent; }
   .btn.ok { background: var(--okSoft); border-color: rgba(52,211,153,.45); color: var(--ok); font-weight: 700; }
@@ -167,6 +170,11 @@
   </div>
   <div class="rv">
     <div>
+      <div id="guestBar" class="guest-bar hidden">👋 איך קוראים לך?
+        <input id="gName" placeholder="השם שלך" maxlength="60">
+        <button class="btn small primary" id="gSave">שמור</button>
+        <span class="sub">כדי שהעורך יידע מי צפה</span>
+      </div>
       <div class="stage" id="stage">
         <video id="player" controls playsinline preload="metadata"></video>
         <canvas id="drawCanvas"></canvas>
@@ -402,8 +410,11 @@ function openReview(id) {
     renderComments(); renderHeader();
   }, err => toast('שגיאה בטעינת ההערות: ' + err.message, 4000));
   setDraw(false); resizeCanvas(); updateTime();
+  show('guestBar', guest && !localStorage.getItem('reviewer_name'));
+  startView();
 }
 $('btnBack').onclick = () => {
+  flushView();
   if (unsubs.current) unsubs.current(); unsubs.current = null;
   current = null; player.pause(); history.replaceState(null, '', location.pathname);
   show('vReview', false); show('vDash', true); renderDash();
@@ -482,6 +493,53 @@ function renderComments() {
     on('.act-done', async () => { try { await cmRef(c.id).update({ done: !c.done, updatedAt: Date.now() }); } catch (e) { toast(e.message, 4000); } });
   });
 }
+/* ═══ מעקב צפייה — כדי שהעורך יידע מי נכנס ומי צפה ═══ */
+const view = { ref: null, id: null, watched: 0, maxPct: 0, lastT: null, dirty: false, timer: null };
+async function startView() {
+  flushView();
+  if (!current || isAdmin) return;
+  const id = current.id;
+  view.ref = null; view.id = id; view.watched = 0; view.maxPct = 0; view.lastT = null; view.dirty = false;
+  try {
+    if (!me) { await auth.signInAnonymously(); me = auth.currentUser; }
+    if (!me || !current || current.id !== id) return;
+    const ref = db.collection('reviews').doc(id).collection('views').doc(me.uid);
+    const old = await ref.get().catch(() => null);
+    const o = old && old.exists ? old.data() : null;
+    view.watched = (o && o.watchedSec) || 0; view.maxPct = (o && o.maxPct) || 0;
+    await ref.set({
+      uid: me.uid, email: (me.emailVerified && me.email) || '', name: viewerName(), guest: !!me.isAnonymous,
+      firstAt: (o && o.firstAt) || Date.now(), lastAt: Date.now(), visits: ((o && o.visits) || 0) + 1,
+      maxPct: view.maxPct, watchedSec: view.watched, version: current.version || 1,
+    });
+    view.ref = ref;
+  } catch (e) { /* מעקב לא קריטי */ }
+}
+const viewerName = () => (me && !me.isAnonymous ? (me.displayName || '') : (localStorage.getItem('reviewer_name') || ''));
+function flushView() {
+  if (!view.ref || !view.dirty) return;
+  view.dirty = false;
+  view.ref.update({ lastAt: Date.now(), maxPct: Math.round(view.maxPct), watchedSec: Math.round(view.watched), name: viewerName(), version: (current && current.version) || 1 }).catch(() => {});
+}
+player.addEventListener('timeupdate', () => {
+  if (!view.ref) return;
+  const t = player.currentTime || 0;
+  if (!player.paused && view.lastT !== null) { const d = t - view.lastT; if (d > 0 && d < 2) view.watched += d; }
+  view.lastT = t;
+  if (player.duration > 0) view.maxPct = Math.max(view.maxPct, Math.min(100, (t / player.duration) * 100));
+  view.dirty = true;
+  if (!view.timer) view.timer = setTimeout(() => { view.timer = null; flushView(); }, 15000);
+});
+player.addEventListener('pause', flushView);
+player.addEventListener('ended', () => { view.maxPct = 100; view.dirty = true; flushView(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushView(); });
+$('gSave').onclick = () => {
+  const n = $('gName').value.trim(); if (!n) return $('gName').focus();
+  localStorage.setItem('reviewer_name', n); $('cName').value = n; $('userName').textContent = n;
+  show('guestBar', false); view.dirty = true; flushView(); toast('תודה ' + n + '!');
+};
+$('gName').addEventListener('keydown', e => { if (e.key === 'Enter') $('gSave').click(); });
+
 const cmRef = id => db.collection('reviews').doc(current.id).collection('comments').doc(id);
 
 function seekTo(c, showDrawing) {
@@ -511,6 +569,7 @@ $('btnSend').onclick = async () => {
     author = $('cName').value.trim();
     if (!author) { $('cName').focus(); return toast('כתוב את שמך כדי שנדע ממי ההערה'); }
     localStorage.setItem('reviewer_name', author);
+    show('guestBar', false);
   }
   $('btnSend').disabled = true;
   try {
@@ -525,6 +584,7 @@ $('btnSend').onclick = async () => {
       createdAt: Date.now(), updatedAt: Date.now(),
     });
     db.collection('reviews').doc(current.id).update({ lastActivity: Date.now() }).catch(() => {});
+    flushView();
     $('cText').value = ''; strokes = []; setDraw(false); render();
     cmFilter = 'open'; document.querySelectorAll('.fchip').forEach(x => x.classList.toggle('on', x.dataset.f === 'open'));
     toast('ההערה נשלחה ✓');
