@@ -39,6 +39,7 @@
   .btn.ghost { background: transparent; }
   .btn.ok { background: var(--okSoft); border-color: rgba(52,211,153,.45); color: var(--ok); font-weight: 700; }
   .btn.small { padding: 5px 10px; font-size: 13px; border-radius: 8px; }
+  a.btn { text-decoration: none; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
 
   /* login */
@@ -166,6 +167,7 @@
   <button class="back" id="btnBack">→ חזרה לכל הסרטונים</button>
   <div class="rv-head">
     <div style="flex:1;min-width:200px"><h2 id="rvTitle"></h2><div class="sub" id="rvSub"></div></div>
+    <a id="btnDownload" class="btn small hidden" target="_blank" rel="noopener" title="הורדת הסרטון באיכות המלאה">⬇ הורדה באיכות מלאה</a>
     <div id="rvBadge"></div>
   </div>
   <div class="rv">
@@ -424,6 +426,14 @@ function renderHeader() {
   if (!current) return;
   const r = reviews.find(x => x.id === current.id) || current; current = r;
   const s = stateOf(r);
+  const dl = $('btnDownload'), dlUrl = r.downloadUrl || r.videoUrl;
+  show('btnDownload', !!dlUrl);
+  if (dlUrl) {
+    dl.href = dlUrl;
+    const ext = (dlUrl.match(/\.(mp4|mov|mxf|mkv|m4v)(\?|$)/i) || [])[1] || 'mp4';
+    dl.setAttribute('download', (r.name || 'video').replace(/[\\/:*?"<>|]/g, '_') + '.' + ext);
+    dl.textContent = '⬇ הורדה באיכות מלאה' + (r.downloadUrl && r.downloadMB ? ` (${r.downloadMB >= 1024 ? (r.downloadMB / 1024).toFixed(1) + 'GB' : r.downloadMB + 'MB'})` : '');
+  }
   $('rvBadge').innerHTML = `<span class="badge ${s.cls}" style="font-size:13px;padding:5px 12px">${s.label}</span>`;
   const approved = r.status === 'approved';
   show('approvedBar', approved); show('approveRow', !approved);
